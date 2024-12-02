@@ -9,8 +9,28 @@ file_size: .space 4
 file_start: .space 4
 file_end: .space 4
 
+MEMORY: .space 1001
+
 .text
 EXEC_ADD:
+    // Slice the file into chunks of 8kb
+    // and calculate the number of required chunks
+    // file_size = ceil(file_size / 8)
+
+    movl file_size, %eax
+    movl $0, %edx
+    movl $8, %ebx
+    div %ebx
+
+    movl %eax, file_size
+
+    cmp $0, %edx
+    je ADD_INIT_MEMORY_SCAN
+
+    inc file_size
+
+ADD_INIT_MEMORY_SCAN:
+
     ret
 
 EXEC_GET:
@@ -24,6 +44,8 @@ EXEC_DEFRAGMENTATION:
 
 .global main
 main:
+    lea MEMORY, %edi
+
     // scanf("%d", &query_count);
     pushl $query_count
     pushl $scanf_fmt
