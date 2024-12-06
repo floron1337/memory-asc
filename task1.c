@@ -290,6 +290,7 @@ int main(){
         PRINT_MEMORY();
     }
     else if(query_code == 4){
+        printf("BEGIN DEFRAG\n");
         EXEC_DEFRAGMENTATION();
         PRINT_MEMORY();
     }

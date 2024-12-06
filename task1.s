@@ -6,6 +6,11 @@ printf_get_fmt: .asciz "((%d, %d), (%d, %d))\n"
 i: .long 0
 j: .long 0
 
+i_copy: .long 0
+j_copy: .long 0
+file_start_copy: .long 0
+file_end_copy: .long 0
+
 query_count: .long 0
 query_code: .long 0
 file_count: .long 0
@@ -347,12 +352,13 @@ EXEC_DELETE:
     cmp file_descriptor, %edx
     jne CONTINUE_DELETE_LOOP
 
-    movl $0, file_end
+    movl j, %eax
+    movl %eax, file_end
 
     DELETE_FILE_SCAN_LOOP:
     // with file_end starting from the first occurence
     // of the file_descriptor
-    // if(MEMORY[file_end] != file_descriptor){
+    // if(MEMORY[i][file_end] != file_descriptor){
     //     goto EXIT_DELETE_MEMORY_SCAN_LOOP;
     // }
     movl i, %eax
@@ -376,7 +382,8 @@ EXEC_DELETE:
     EXIT_DELETE_LOOP:
     ret
 
-// TODO: FIX THIS
+// TODO: this has some problems, i think
+// needs serious testing
 EXEC_DEFRAGMENTATION:
     movl $0, i
     movl $0, j
@@ -433,15 +440,47 @@ EXEC_DEFRAGMENTATION:
     jmp DEFRAG_FILE_SCAN_LOOP
 
     EXIT_DEFRAG_FILE_SCAN_LOOP:
+    movl i, %eax
+    movl j, %ebx
+    movl file_start, %ecx
+    movl file_end, %edx
+
+    movl %eax, i_copy
+    movl %ebx, j_copy
+    movl %ecx, file_start_copy
+    movl %edx, file_end_copy
+
+    call EXEC_DELETE
+
+    movl i_copy, %eax
+    movl j_copy, %ebx
+    movl file_start_copy, %ecx
+    movl file_end_copy, %edx
+
+    movl %eax, i
+    movl %ebx, j
+    movl %ecx, file_start
+    movl %edx, file_end
+
     movl file_end, %eax
     subl file_start, %eax
+    inc %eax
     movl $0, %edx
     movl $8, %ebx
     mul %ebx
     movl %eax, file_size
 
-    call EXEC_DELETE
     call EXEC_ADD
+
+    movl i_copy, %eax
+    movl j_copy, %ebx
+    movl file_start_copy, %ecx
+    movl file_end_copy, %edx
+
+    movl %eax, i
+    movl %ebx, j
+    movl %ecx, file_start
+    movl %edx, file_end
 
     movl file_end, %eax
     subl free_chunk_size, %eax
