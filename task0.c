@@ -5,11 +5,23 @@
 int query_count = 0;
 int MEMORY[MEMORY_SIZE];
 
+void CLEAR_MEMORY(){
+    int i = 0;
+    CLEAR_MEMORY_LOOP:
+    if(i == MEMORY_SIZE){
+        goto CLEAR_MEMORY_EXIT;
+    }
+    MEMORY[i] = 0;
+    i++;
+    goto CLEAR_MEMORY_LOOP;
+    CLEAR_MEMORY_EXIT:
+}
+
 void PRINT_MEMORY(){
     int i = 0;
-    MEMORY_SCAN_LOOP:
+    PRINT_LOOP:
     if(i == 1000){
-        goto EXIT_MEMORY_SCAN_LOOP;
+        goto EXIT_PRINT_LOOP;
     }
 
     if(MEMORY[i] != 0){
@@ -31,9 +43,9 @@ void PRINT_MEMORY(){
     }
 
     i++;
-    goto MEMORY_SCAN_LOOP;
+    goto PRINT_LOOP;
 
-    EXIT_MEMORY_SCAN_LOOP:
+    EXIT_PRINT_LOOP:
 
 }
 

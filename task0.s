@@ -28,14 +28,14 @@ CLEAR_MEMORY:
     
     CLEAR_MEMORY_LOOP:
     cmp $1001, %ecx
-    je CLEAR_MEMORY_EXIT
+    je EXIT_CLEAR_MEMORY
 
     movl $0, (%edi, %ecx, 4)
 
     inc %ecx
     jmp CLEAR_MEMORY_LOOP
 
-    CLEAR_MEMORY_EXIT:
+    EXIT_CLEAR_MEMORY:
     ret
 
 PRINT_MEMORY:
