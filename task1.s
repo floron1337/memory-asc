@@ -484,6 +484,7 @@ EXEC_DEFRAGMENTATION:
 
     movl file_end, %eax
     subl free_chunk_size, %eax
+    decl %eax
     movl %eax, j
     movl $0, free_chunk_size
 

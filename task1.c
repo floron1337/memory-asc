@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#define MEMORY_SIZE 1001
+#define MEMORY_SIZE 1025
 
 int query_count = 0;
 int MEMORY[MEMORY_SIZE][MEMORY_SIZE];

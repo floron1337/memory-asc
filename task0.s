@@ -12,6 +12,8 @@ file_size: .space 4
 file_start: .space 4
 file_end: .space 4
 
+aux: .space 4
+
 current_chunk_start: .long 0
 current_chunk_end: .long 0
 current_chunk_size: .long 0
@@ -20,14 +22,14 @@ free_chunk_size: .long 0
 
 malloc_i: .long 0
 
-MEMORY: .space 4004
+MEMORY: .space 4100
 
 .text
 CLEAR_MEMORY:
     mov $0, %ecx
     
     CLEAR_MEMORY_LOOP:
-    cmp $1001, %ecx
+    cmp $1025, %ecx
     je EXIT_CLEAR_MEMORY
 
     movl $0, (%edi, %ecx, 4)
@@ -41,7 +43,7 @@ CLEAR_MEMORY:
 PRINT_MEMORY:
     mov $0, %ecx
     PRINT_LOOP:
-    cmp $1000, %ecx
+    cmp $1024, %ecx
     je EXIT_PRINT
 
     // %edx = MEMORY[i]
@@ -85,30 +87,13 @@ PRINT_MEMORY:
     ret
 
 EXEC_ADD:
-    // Slice the file into chunks of 8kb
-    // and calculate the number of required chunks
-    // file_size = ceil(file_size / 8)
-
-    movl file_size, %eax
-    movl $0, %edx
-    movl $8, %ebx
-    div %ebx
-
-    movl %eax, file_size
-
-    cmp $0, %edx
-    je ADD_INIT_MEMORY_SCAN
-
-    incl file_size
-
-    ADD_INIT_MEMORY_SCAN:
     movl $0, %ecx
     movl $0, current_chunk_start
     movl $0, current_chunk_size
     movl $0, current_chunk_end
 
     ADD_MEMORY_SCAN_LOOP:
-    cmp $1000, %ecx
+    cmp $1024, %ecx
     je ADD_MEMORY_SCAN_EXIT
 
     // store MEMORY[i] into %edx
@@ -176,8 +161,8 @@ EXEC_GET:
     movl $0, %ecx
     
     GET_LOOP:
-    cmp $1000, %ecx
-    je EXIT_GET_LOOP
+    cmp $1024, %ecx
+    je EXIT_GET_LOOP_NOT_FOUND
 
     // %edx = MEMORY[i]
     movl (%edi, %ecx, 4), %edx
@@ -208,20 +193,33 @@ EXEC_GET:
     popl %ebx
     popl %ebx
     popl %ebx
-    jmp EXIT_GET_LOOP
+    jmp EXIT_GET_LOOP_SUCCESS
 
     CONTINUE_GET_LOOP:
     inc %ecx
     jmp GET_LOOP
 
-    EXIT_GET_LOOP:
+    EXIT_GET_LOOP_NOT_FOUND:
+    // printf("(%d, %d)", 0, 0)
+    movl $0, file_end
+    movl $0, file_start
+
+    pushl file_end
+    pushl file_start
+    pushl $printf_get_fmt
+    call printf
+    popl %ebx
+    popl %ebx
+    popl %ebx
+
+    EXIT_GET_LOOP_SUCCESS:
     ret
 
 EXEC_DELETE:
     mov $0, %ecx
 
     DELETE_LOOP:
-    cmp $1000, %ecx
+    cmp $1024, %ecx
     je EXIT_DELETE_LOOP
 
     // %edx = MEMORY[i]
@@ -235,7 +233,7 @@ EXEC_DELETE:
     // with %eax starting from the first occurence
     // of the file_descriptor
     // if(MEMORY[%eax] != file_descriptor){
-    //     goto EXIT_DELETE_MEMORY_SCAN_LOOP;
+    //     goto EXIT_DELETE_LOOP;
     // }
     movl (%edi, %eax, 4), %edx
     cmp file_descriptor, %edx
@@ -258,7 +256,7 @@ EXEC_DEFRAGMENTATION:
     movl $0, free_chunk_size
 
     DEFRAG_LOOP:
-    cmp $1000, %ecx
+    cmp $1024, %ecx
     je EXIT_DEFRAG_LOOP
 
     // %edx = MEMORY[i]
@@ -271,12 +269,13 @@ EXEC_DEFRAGMENTATION:
     jmp CONTINUE_DEFRAG_LOOP
 
     DEFRAG_TRY_SHIFT:
-    cmpl $0, free_chunk_size
+    cmp $0, free_chunk_size
     jl CONTINUE_DEFRAG_LOOP
 
     movl %edx, file_descriptor
     movl %ecx, file_start
     movl %ecx, file_end
+    incl file_end
 
     DEFRAG_FILE_SCAN_LOOP:
     movl file_end, %eax
@@ -288,19 +287,19 @@ EXEC_DEFRAGMENTATION:
     jmp DEFRAG_FILE_SCAN_LOOP
 
     EXIT_DEFRAG_FILE_SCAN_LOOP:
+
+    call EXEC_DELETE
+
     movl file_end, %eax
     subl file_start, %eax
-    movl $0, %edx
-    movl $8, %ebx
-    mul %ebx
-
     movl %eax, file_size
-    call EXEC_DELETE
+
     call EXEC_ADD
 
     movl file_end, %eax
     subl free_chunk_size, %eax
     movl %eax, %ecx
+    decl %ecx
     movl $0, free_chunk_size
 
     CONTINUE_DEFRAG_LOOP:
@@ -376,6 +375,18 @@ main:
         call scanf
         popl %ebx
         popl %ebx
+
+        // Slice the file into chunks of 8kb
+        // and calculate the number of required chunks
+        // file_size = (file_size + 7) / 8
+
+        movl file_size, %eax
+        addl $7, %eax
+        movl $0, %edx
+        movl $8, %ebx
+        div %ebx
+
+        movl %eax, file_size
 
         // EXEC_ADD(file_descriptor, file_size)
         call EXEC_ADD

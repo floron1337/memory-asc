@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#define MEMORY_SIZE 1001
+#define MEMORY_SIZE 1025
 
 int query_count = 0;
 int MEMORY[MEMORY_SIZE];
@@ -51,12 +51,7 @@ void PRINT_MEMORY(){
 
 void EXEC_ADD(int file_descriptor, int file_size){
 
-    if(file_size % 8 == 0){
-        file_size = file_size / 8;
-    }
-    else{
-        file_size = file_size / 8 + 1;
-    }
+    file_size = (file_size + 7) / 8;
 
     int i = 0;
     int current_chunk_start = 0;
@@ -160,7 +155,7 @@ void EXEC_DEFRAGMENTATION(){
     int free_chunk_size = 0;
 
     DEFRAG_MEMORY_SCAN_LOOP:
-    if(i == 1000){
+    if(i == 1024){
         goto EXIT_DEFRAG_MEMORY_SCAN_LOOP;
     }
 
