@@ -29,7 +29,7 @@ free_chunk_size: .long 0
 
 malloc_j: .long 0
 
-MEMORY: .space 16032016
+MEMORY: .space 4202500
 
 .text
 CLEAR_MEMORY:
@@ -38,7 +38,7 @@ CLEAR_MEMORY:
     
     CLEAR_MEMORY_LOOP:
     movl j, %ecx
-    cmp $1001, %ecx
+    cmp $1025, %ecx
     jne CLEAR_CHECK_LOOP_END
 
     inc i
@@ -46,13 +46,13 @@ CLEAR_MEMORY:
 
     CLEAR_CHECK_LOOP_END:
     movl i, %ecx
-    cmp $1001, %ecx
+    cmp $1025, %ecx
     je EXIT_CLEAR_MEMORY
 
     // MEMORY[i][j] = 0
     movl i, %eax
     movl $0, %edx
-    movl $1000, %ebx
+    movl $1024, %ebx
     mull %ebx
     addl j, %eax
     movl $0, (%edi, %eax, 4)
@@ -69,7 +69,7 @@ PRINT_MEMORY:
 
     PRINT_LOOP:
     movl j, %ecx
-    cmp $1000, %ecx
+    cmp $1024, %ecx
     jne PRINT_CHECK_LOOP_END
     
     inc i
@@ -77,13 +77,13 @@ PRINT_MEMORY:
 
     PRINT_CHECK_LOOP_END:
     movl i, %ecx
-    cmp $1000, %ecx
+    cmp $1024, %ecx
     je EXIT_PRINT
 
     // %edx = MEMORY[i][j]
     movl i, %eax
     movl $0, %edx
-    movl $1000, %ebx
+    movl $1024, %ebx
     mull %ebx
     addl j, %eax
     movl (%edi, %eax, 4), %edx
@@ -102,7 +102,7 @@ PRINT_MEMORY:
     // %edx = MEMORY[i][file_end + 1]
     movl i, %eax
     movl $0, %edx
-    movl $1000, %ebx
+    movl $1024, %ebx
     mull %ebx
     movl file_end, %ebx
     incl %ebx
@@ -166,7 +166,7 @@ EXEC_ADD:
 
     ADD_MEMORY_SCAN_LOOP:
     movl j, %ecx
-    cmp $1000, %ecx
+    cmp $1024, %ecx
     jne ADD_MEMORY_SCAN_CHECK_LOOP_END
     
     inc i
@@ -177,13 +177,13 @@ EXEC_ADD:
 
     ADD_MEMORY_SCAN_CHECK_LOOP_END:
     movl i, %ecx
-    cmp $1000, %ecx
+    cmp $1024, %ecx
     je ADD_MEMORY_SCAN_EXIT
 
     // store MEMORY[i][j] into %edx
     movl i, %eax
     movl $0, %edx
-    movl $1000, %ebx
+    movl $1024, %ebx
     mull %ebx
     addl j, %eax
     movl (%edi, %eax, 4), %edx
@@ -231,7 +231,7 @@ EXEC_ADD:
     // MEMORY[i][malloc_j] = file_descriptor
     movl i, %eax
     movl $0, %edx
-    movl $1000, %ebx
+    movl $1024, %ebx
     mull %ebx
     addl malloc_j, %eax
     movl file_descriptor, %ebx
@@ -259,7 +259,7 @@ EXEC_GET:
     
     GET_LOOP:
     movl j, %ecx
-    cmp $1000, %ecx
+    cmp $1024, %ecx
     jne GET_CHECK_LOOP_END
 
     inc i
@@ -267,13 +267,13 @@ EXEC_GET:
 
     GET_CHECK_LOOP_END:
     movl i, %ecx
-    cmp $1000, %ecx
-    je EXIT_GET_LOOP
+    cmp $1024, %ecx
+    je EXIT_GET_LOOP_NOT_FOUND
 
     // %edx = MEMORY[i][j]
     movl i, %eax
     movl $0, %edx
-    movl $1000, %ebx
+    movl $1024, %ebx
     mull %ebx
     addl j, %eax
     movl (%edi, %eax, 4), %edx
@@ -291,7 +291,7 @@ EXEC_GET:
     // %edx = MEMORY[i][file_end + 1]
     movl i, %eax
     movl $0, %edx
-    movl $1000, %ebx
+    movl $1024, %ebx
     mull %ebx
     movl file_end, %ebx
     inc %ebx
@@ -316,13 +316,31 @@ EXEC_GET:
     popl %ebx
     popl %ebx
     popl %ebx
-    jmp EXIT_GET_LOOP
+    jmp EXIT_GET_LOOP_SUCCESS
 
     CONTINUE_GET_LOOP:
     inc j
     jmp GET_LOOP
 
-    EXIT_GET_LOOP:
+    EXIT_GET_LOOP_NOT_FOUND:
+    // printf("(%d, %d)", 0, 0)
+    movl $0, file_sector
+    movl $0, file_start
+    movl $0, file_end
+
+    pushl file_end
+    pushl file_sector
+    pushl file_start
+    pushl file_sector
+    pushl $printf_get_fmt
+    call printf
+    popl %ebx
+    popl %ebx
+    popl %ebx
+    popl %ebx
+    popl %ebx
+
+    EXIT_GET_LOOP_SUCCESS:
     ret
 
 EXEC_DELETE:
@@ -331,7 +349,7 @@ EXEC_DELETE:
 
     DELETE_LOOP:
     movl j, %ecx
-    cmp $1000, %ecx
+    cmp $1024, %ecx
     jne DELETE_CHECK_LOOP_END
 
     inc i
@@ -339,13 +357,13 @@ EXEC_DELETE:
 
     DELETE_CHECK_LOOP_END:
     movl i, %ecx
-    cmp $1000, %ecx
+    cmp $1024, %ecx
     je EXIT_DELETE_LOOP
 
     // %edx = MEMORY[i][j]
     movl i, %eax
     movl $0, %edx
-    movl $1000, %ebx
+    movl $1024, %ebx
     mull %ebx
     addl j, %eax
     movl (%edi, %eax, 4), %edx
@@ -363,7 +381,7 @@ EXEC_DELETE:
     // }
     movl i, %eax
     movl $0, %edx
-    movl $1000, %ebx
+    movl $1024, %ebx
     mull %ebx
     addl file_end, %eax
     movl (%edi, %eax, 4), %edx
@@ -382,8 +400,6 @@ EXEC_DELETE:
     EXIT_DELETE_LOOP:
     ret
 
-// TODO: this has some problems, i think
-// needs serious testing
 EXEC_DEFRAGMENTATION:
     movl $0, i
     movl $0, j
@@ -391,7 +407,7 @@ EXEC_DEFRAGMENTATION:
 
     DEFRAG_LOOP:
     movl j, %ecx
-    cmp $1000, %ecx
+    cmp $1024, %ecx
     jne DEFRAG_CHECK_LOOP_END
 
     inc i
@@ -399,13 +415,13 @@ EXEC_DEFRAGMENTATION:
 
     DEFRAG_CHECK_LOOP_END:
     movl i, %ecx
-    cmp $1000, %ecx
+    cmp $1024, %ecx
     je EXIT_DEFRAG_LOOP
 
     // %edx = MEMORY[i][j]
     movl i, %eax
     movl $0, %edx
-    movl $1000, %ebx
+    movl $1024, %ebx
     mull %ebx
     addl j, %eax
     movl (%edi, %eax, 4), %edx
@@ -429,7 +445,7 @@ EXEC_DEFRAGMENTATION:
     DEFRAG_FILE_SCAN_LOOP:
     movl i, %eax
     movl $0, %edx
-    movl $1000, %ebx
+    movl $1024, %ebx
     mull %ebx
     addl file_end, %eax
     movl (%edi, %eax, 4), %edx
@@ -600,6 +616,10 @@ main:
     jmp CONTINUE_QUERY_LOOP
 
     CONTINUE_QUERY_LOOP:
+    pushl $0
+    call fflush
+    popl %ebx
+
     decl query_count
     jmp QUERY_LOOP
 

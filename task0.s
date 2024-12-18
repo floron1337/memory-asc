@@ -426,6 +426,10 @@ main:
     jmp CONTINUE_QUERY_LOOP
 
     CONTINUE_QUERY_LOOP:
+    pushl $0
+    call fflush
+    popl %ebx
+    
     decl query_count
     jmp QUERY_LOOP
 
