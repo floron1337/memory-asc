@@ -29,6 +29,8 @@ free_chunk_size: .long 0
 
 malloc_j: .long 0
 
+defrag_in_progress: .long 0
+
 MEMORY: .space 4202500
 
 .text
@@ -141,23 +143,6 @@ PRINT_MEMORY:
     ret
 
 EXEC_ADD:
-    // Slice the file into chunks of 8kb
-    // and calculate the number of required chunks
-    // file_size = ceil(file_size / 8)
-
-    movl file_size, %eax
-    movl $0, %edx
-    movl $8, %ebx
-    div %ebx
-
-    movl %eax, file_size
-
-    cmp $0, %edx
-    je ADD_INIT_MEMORY_SCAN
-
-    incl file_size
-
-    ADD_INIT_MEMORY_SCAN:
     movl $0, i
     movl $0, j
     movl $0, current_chunk_start
@@ -178,7 +163,7 @@ EXEC_ADD:
     ADD_MEMORY_SCAN_CHECK_LOOP_END:
     movl i, %ecx
     cmp $1024, %ecx
-    je ADD_MEMORY_SCAN_EXIT
+    je ADD_MEMORY_SCAN_FAIL
 
     // store MEMORY[i][j] into %edx
     movl i, %eax
@@ -226,7 +211,7 @@ EXEC_ADD:
     MALLOC_LOOP:
     movl malloc_j, %edx
     cmp %edx, current_chunk_end
-    je ADD_MEMORY_SCAN_EXIT
+    je ADD_MEMORY_SCAN_SUCCESS
 
     // MEMORY[i][malloc_j] = file_descriptor
     movl i, %eax
@@ -250,7 +235,38 @@ EXEC_ADD:
     incl j
     jmp ADD_MEMORY_SCAN_LOOP
 
+    ADD_MEMORY_SCAN_FAIL:
+    movl $0, file_sector
+    movl $0, file_start
+    movl $0, file_end
+    jmp ADD_MEMORY_SCAN_EXIT
+
+    ADD_MEMORY_SCAN_SUCCESS:
+    movl i, %eax
+    movl current_chunk_start, %ebx
+    movl current_chunk_end, %ecx
+    decl %ecx
+
+    movl %eax, file_sector
+    movl %ebx, file_start
+    movl %ecx, file_end
+
+    
     ADD_MEMORY_SCAN_EXIT:
+    pushl file_end
+    pushl file_sector
+    pushl file_start
+    pushl file_sector
+    pushl file_descriptor
+    pushl $printf_descriptor_fmt
+    call printf
+    popl %ebx
+    popl %ebx
+    popl %ebx
+    popl %ebx
+    popl %ebx
+    popl %ebx
+
     ret
 
 EXEC_GET:
@@ -400,6 +416,12 @@ EXEC_DELETE:
     EXIT_DELETE_LOOP:
     ret
 
+// TODO: fix major flaw with defragmentation
+// the files need to keep their order
+// so in order to do that, you must modify EXEC_ADD
+// to start the process from where the last allocation left off
+// USE the defrag_in_progress flag
+
 EXEC_DEFRAGMENTATION:
     movl $0, i
     movl $0, j
@@ -412,6 +434,7 @@ EXEC_DEFRAGMENTATION:
 
     inc i
     movl $0, j
+    movl $0, free_chunk_size
 
     DEFRAG_CHECK_LOOP_END:
     movl i, %ecx
@@ -480,10 +503,6 @@ EXEC_DEFRAGMENTATION:
 
     movl file_end, %eax
     subl file_start, %eax
-    inc %eax
-    movl $0, %edx
-    movl $8, %ebx
-    mul %ebx
     movl %eax, file_size
 
     call EXEC_ADD
@@ -578,6 +597,14 @@ main:
         popl %ebx
         popl %ebx
 
+        movl file_size, %eax
+        addl $7, %eax
+        movl $0, %edx
+        movl $8, %ebx
+        div %ebx
+
+        movl %eax, file_size
+
         // EXEC_ADD(file_descriptor, file_size)
         call EXEC_ADD
 
@@ -585,7 +612,8 @@ main:
         jmp ADD_LOOP
 
     EXIT_ADD_LOOP:
-    call PRINT_MEMORY
+    // call PRINT_MEMORY
+
     jmp CONTINUE_QUERY_LOOP
 
     HANDLE_GET:
@@ -612,18 +640,18 @@ main:
 
     HANDLE_DEFRAGMENTATION:
     call EXEC_DEFRAGMENTATION
-    call PRINT_MEMORY
+    // call PRINT_MEMORY
     jmp CONTINUE_QUERY_LOOP
 
     CONTINUE_QUERY_LOOP:
-    pushl $0
-    call fflush
-    popl %ebx
-
     decl query_count
     jmp QUERY_LOOP
 
     END_PROGRAM:
+    pushl $0
+    call fflush
+    popl %ebx
+
     mov $1, %eax
     mov $0, %ebx
     int $0x80
