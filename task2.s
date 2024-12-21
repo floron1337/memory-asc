@@ -6,11 +6,6 @@ printf_get_fmt: .asciz "((%d, %d), (%d, %d))\n"
 i: .long 0
 j: .long 0
 
-i_copy: .long 0
-j_copy: .long 0
-file_start_copy: .long 0
-file_end_copy: .long 0
-
 query_count: .long 0
 query_code: .long 0
 file_count: .long 0
@@ -30,6 +25,10 @@ free_chunk_size: .long 0
 malloc_j: .long 0
 
 defrag_in_progress: .long 0
+
+last_i: .long 0
+last_j: .long 0
+
 
 MEMORY: .space 4202500
 
@@ -143,8 +142,12 @@ PRINT_MEMORY:
     ret
 
 EXEC_ADD:
+    cmp $0, defrag_in_progress
+    jne ADD_START
     movl $0, i
     movl $0, j
+
+    ADD_START:
     movl $0, current_chunk_start
     movl $0, current_chunk_size
     movl $0, current_chunk_end
@@ -416,13 +419,13 @@ EXEC_DELETE:
     EXIT_DELETE_LOOP:
     ret
 
-// TODO: fix major flaw with defragmentation
-// the files need to keep their order
-// so in order to do that, you must modify EXEC_ADD
-// to start the process from where the last allocation left off
-// USE the defrag_in_progress flag
 
 EXEC_DEFRAGMENTATION:
+    movl $1, defrag_in_progress
+
+    movl $0, last_i
+    movl $0, last_j
+    
     movl $0, i
     movl $0, j
     movl $0, free_chunk_size
@@ -479,48 +482,30 @@ EXEC_DEFRAGMENTATION:
     jmp DEFRAG_FILE_SCAN_LOOP
 
     EXIT_DEFRAG_FILE_SCAN_LOOP:
-    movl i, %eax
-    movl j, %ebx
-    movl file_start, %ecx
-    movl file_end, %edx
-
-    movl %eax, i_copy
-    movl %ebx, j_copy
-    movl %ecx, file_start_copy
-    movl %edx, file_end_copy
-
-    call EXEC_DELETE
-
-    movl i_copy, %eax
-    movl j_copy, %ebx
-    movl file_start_copy, %ecx
-    movl file_end_copy, %edx
-
-    movl %eax, i
-    movl %ebx, j
-    movl %ecx, file_start
-    movl %edx, file_end
 
     movl file_end, %eax
     subl file_start, %eax
     movl %eax, file_size
 
-    call EXEC_ADD
+    call EXEC_DELETE
 
-    movl i_copy, %eax
-    movl j_copy, %ebx
-    movl file_start_copy, %ecx
-    movl file_end_copy, %edx
+    movl last_i, %eax
+    movl last_j, %ebx
 
     movl %eax, i
     movl %ebx, j
-    movl %ecx, file_start
-    movl %edx, file_end
 
-    movl file_end, %eax
-    subl free_chunk_size, %eax
-    decl %eax
-    movl %eax, j
+    call EXEC_ADD
+
+    movl file_sector, %eax
+    movl file_end, %ebx
+
+    movl %eax, i
+    movl %ebx, j
+    
+    movl %eax, last_i
+    movl %ebx, last_j
+
     movl $0, free_chunk_size
 
     CONTINUE_DEFRAG_LOOP:
@@ -528,6 +513,7 @@ EXEC_DEFRAGMENTATION:
     jmp DEFRAG_LOOP
 
     EXIT_DEFRAG_LOOP:
+    movl $0, defrag_in_progress
     ret
 
 .global main
