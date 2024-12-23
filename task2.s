@@ -1,5 +1,7 @@
 .data
 scanf_fmt: .asciz "%d"
+scanf_string_fmt: .asciz "%s"
+
 printf_descriptor_fmt: .asciz "%d: ((%d, %d), (%d, %d))\n"
 printf_get_fmt: .asciz "((%d, %d), (%d, %d))\n"
 
@@ -29,8 +31,20 @@ defrag_in_progress: .long 0
 last_i: .long 0
 last_j: .long 0
 
-
 MEMORY: .space 4202500
+
+// CONCRETE VARIABLES
+exists: .long 0
+dir: .space 4
+dir_path: .space 2048
+entry: .space 4
+d_name: .space 256
+fds: .long 0
+fileStat: .space 256
+file_path: .space 2048
+ignore1: .asciz "."
+ignore2: .asciz ".."
+slash: .asciz "/"
 
 .text
 CLEAR_MEMORY:
@@ -62,6 +76,43 @@ CLEAR_MEMORY:
     jmp CLEAR_MEMORY_LOOP
 
     EXIT_CLEAR_MEMORY:
+    ret
+
+CHECK_EXISTENCE:
+    movl $0, i
+    movl $0, j
+    movl $0, exists
+
+    CHECK_EXISTENCE_LOOP:
+    movl j, %ecx
+    cmp $1024, %ecx
+    jne CHECK_EXISTENCE_CHECK_LOOP_END
+
+    inc i
+    movl $0, j
+
+    CHECK_EXISTENCE_CHECK_LOOP_END:
+    movl i, %ecx
+    cmp $1024, %ecx
+    je EXIT_CHECK_EXISTENCE
+
+    movl i, %eax
+    movl $0, %edx
+    movl $1024, %ebx
+    mull %ebx
+    addl j, %eax
+    movl (%edi, %eax, 4), %edx
+
+    cmp file_descriptor, %edx
+    je EXIT_FILE_FOUND
+
+    inc j
+    jmp CHECK_EXISTENCE_LOOP
+
+    EXIT_FILE_FOUND:
+    movl $1, exists
+
+    EXIT_CHECK_EXISTENCE:
     ret
 
 PRINT_MEMORY:
@@ -516,6 +567,121 @@ EXEC_DEFRAGMENTATION:
     movl $0, defrag_in_progress
     ret
 
+EXEC_CONCRETE:
+    //DIR* dir = opendir(folderPath);
+    pushl $dir_path
+    call opendir
+    popl %ebx
+    movl %eax, dir
+
+    // while ((entry = readdir(dir)) != NULL)
+    CONCRETE_LOOP:
+    pushl dir
+    call readdir
+    popl %ebx
+    movl %eax, entry
+
+    cmp $0, entry
+    je EXIT_CONCRETE_LOOP
+
+    movl entry, %eax       
+    addl $11, %eax        
+    movl %eax, d_name       
+
+    pushl $ignore1
+    pushl d_name
+    call strcmp
+    addl $8, %esp
+
+    cmp $0, %eax
+    je CONCRETE_LOOP
+
+    pushl $ignore2
+    pushl d_name
+    call strcmp
+    addl $8, %esp
+
+    cmp $0, %eax
+    je CONCRETE_LOOP
+
+    // strcpy(filePath, folderPath);
+    // strcat(filePath, "/");
+    // strcat(filePath, entry->d_name);
+
+    pushl $dir_path
+    pushl $file_path
+    call strcpy
+    addl $8, %esp
+
+    pushl $slash
+    pushl $file_path
+    call strcat
+    addl $8, %esp
+
+    pushl d_name
+    pushl $file_path
+    call strcat
+    addl $8, %esp
+
+    pushl $fileStat
+    pushl $file_path
+    call stat
+    addl $8, %esp
+
+    lea fileStat, %eax      
+    movl 12(%eax), %eax      
+    movl %eax, fds
+
+    movl fds, %eax                
+    movl $255, %ecx                    
+    movl $0, %edx                    
+    divl %ecx                          
+    addl $1, %edx                     
+
+    movl %edx, file_descriptor
+
+    lea fileStat, %eax     
+    movl 44(%eax), %eax  
+    //addl $8, %eax   
+    movl $0, %edx
+    movl $1024, %ecx
+    divl %ecx
+    movl %eax, file_size
+
+    movl file_size, %eax
+    addl $8, %eax
+    movl $0, %edx
+    movl $8, %ebx
+    div %ebx
+
+    movl %eax, file_size
+
+    call CHECK_EXISTENCE
+    cmp $1, exists
+    je CONCRETE_ALREADY_EXISTS
+
+    call EXEC_ADD
+    jmp CONCRETE_LOOP
+
+    CONCRETE_ALREADY_EXISTS:
+    pushl $0
+    pushl $0
+    pushl $0
+    pushl $0
+    pushl file_descriptor
+    pushl $printf_descriptor_fmt
+    call printf
+    popl %ebx
+    popl %ebx
+    popl %ebx
+    popl %ebx
+    popl %ebx
+    popl %ebx
+    jmp CONCRETE_LOOP
+
+    EXIT_CONCRETE_LOOP:
+    ret
+
 .global main
 main:
     lea MEMORY, %edi
@@ -556,6 +722,9 @@ main:
 
     cmpl $4, query_code
     je HANDLE_DEFRAGMENTATION
+
+    cmpl $5, query_code
+    je HANDLE_CONCRETE
 
     HANDLE_ADD:
     // scanf("%d", &file_count);
@@ -627,6 +796,17 @@ main:
     HANDLE_DEFRAGMENTATION:
     call EXEC_DEFRAGMENTATION
     // call PRINT_MEMORY
+    jmp CONTINUE_QUERY_LOOP
+
+    HANDLE_CONCRETE:
+    pushl $dir_path
+    pushl $scanf_string_fmt
+    call scanf
+    popl %ebx
+    popl %ebx
+
+    call EXEC_CONCRETE
+    
     jmp CONTINUE_QUERY_LOOP
 
     CONTINUE_QUERY_LOOP:
